@@ -1,0 +1,262 @@
+🧠 MICROSERVICES + SPRING BOOT + GATEWAY
+🔥 DEBUGGING CHEAT SHEET (FROM REAL PAIN 😄)
+1️⃣ Lombok Not Working (setIsActive not found)
+❌ Error
+cannot find symbol: method setIsActive(boolean)
+
+🔍 Cause
+
+Lombok annotation processing disabled
+
+Lombok dependency incomplete
+
+✅ Fix
+
+Add Lombok dependency
+
+Enable annotation processing in IDE
+
+Add annotation processor path in maven-compiler-plugin
+
+2️⃣ Swagger /v3/api-docs → 500 Error
+❌ Error
+Fetch error: response status is 500 /v3/api-docs
+
+🔍 Cause
+
+Missing Hibernate Validator
+
+Springdoc + Spring Boot version mismatch
+
+✅ Fix
+
+Add spring-boot-starter-validation
+
+Use compatible springdoc-openapi-starter-webmvc-ui
+
+3️⃣ jakarta.validation.NoProviderFoundException
+❌ Error
+Unable to create a Configuration, because no Jakarta Validation provider could be found
+
+🔍 Cause
+
+Only validation API present, not implementation
+
+✅ Fix
+<dependency>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-validation</artifactId>
+</dependency>
+
+4️⃣ Maven Build Failing (version missing)
+❌ Error
+'dependencies.dependency.version' is missing
+
+🔍 Cause
+
+Using Spring Boot parent but still adding versions manually / wrongly
+
+✅ Fix
+
+Remove explicit versions for Spring Boot starters
+
+Let parent manage versions
+
+5️⃣ AuthenticationManager Bean Not Found
+❌ Error
+required a bean of type AuthenticationManager that could not be found
+
+🔍 Cause
+
+Controller injects AuthenticationManager
+
+Bean removed during refactor
+
+✅ Fix (Final Architecture)
+
+Remove AuthenticationManager usage
+
+Perform manual login using UserService + PasswordEncoder
+
+Gateway handles JWT validation
+
+6️⃣ JWT Always Returning 401 (BIGGEST ISSUE)
+❌ Symptom
+
+Login works
+
+All secured APIs return 401
+
+🔍 Root Cause (Critical)
+
+JWT signing & validation mismatch
+
+Auth Service	API Gateway
+Key-based signing	String-based parsing
+Keys.hmacShaKeyFor()	setSigningKey(String)
+✅ Final Fix
+
+Use Key-based JWT in BOTH services
+
+Same secret
+
+Same algorithm
+
+Same parser (parserBuilder())
+
+7️⃣ OAuth2 Login Not Saving User / Failing
+❌ Cause
+
+OAuth2 flow sent through API Gateway
+
+Gateway is stateless
+
+OAuth2 needs session & redirects
+
+✅ Fix
+
+Google login MUST hit Auth Service directly
+
+http://localhost:8081/oauth2/authorization/google
+
+8️⃣ 403 / 401 Even After Login (Role Issues)
+❌ Cause
+
+Authority mismatch:
+
+ROLE_ADMIN vs ADMIN
+
+@PreAuthorize used when security moved to Gateway
+
+✅ Fix
+
+Remove @PreAuthorize from services
+
+Enforce role only in Gateway
+
+Pass role via header: X-User-Role
+
+9️⃣ API Gateway Routing Confusion
+❌ Error
+404 Not Found /api/auth/login
+
+🔍 Cause
+
+Gateway route mismatch
+
+Service name mismatch in Eureka
+
+✅ Fix
+
+Ensure:
+
+spring.application.name=auth-service
+lb://auth-service
+
+
+Verify service is visible in Eureka
+
+🔟 Feign Client Error
+❌ Error
+@FeignClient can only be specified on an interface
+
+🔍 Cause
+
+@FeignClient placed on a class
+
+✅ Fix
+
+Either:
+
+Remove Feign (recommended early)
+
+OR use Feign only on interfaces
+
+1️⃣1️⃣ Quiz Service /api/quizzes → 400 Bad Request (MOST CONFUSING)
+❌ Symptoms
+
+400 error
+
+Controller logs never print
+
+Headers seem correct
+
+🔍 ROOT CAUSE (FINAL)
+
+❌ Using JPA Entity (Quiz) as @RequestBody
+
+Jackson failed to deserialize → Spring rejected request before controller
+
+✅ Fix (Industry Standard)
+
+Create DTO (CreateQuizRequest)
+
+Map DTO → Entity manually
+
+@PostMapping
+public Quiz createQuiz(
+  @RequestBody CreateQuizRequest request
+)
+
+1️⃣2️⃣ PowerShell curl Not Working
+❌ Error
+Cannot bind parameter 'Headers'
+
+🔍 Cause
+
+PowerShell curl ≠ Linux curl
+
+It’s an alias for Invoke-WebRequest
+
+✅ Fix
+
+Use:
+
+Invoke-RestMethod -Method POST -Uri ... -Headers @{...}
+
+🏁 FINAL ARCHITECTURE (WHAT YOU ENDED UP WITH)
+✅ API Gateway
+
+JWT validation
+
+Role-based routing
+
+Adds headers:
+
+X-User-Email
+
+X-User-Role
+
+✅ Auth Service
+
+Login
+
+Register
+
+OAuth2
+
+JWT generation
+
+NO JWT validation
+
+✅ Quiz Service
+
+Business logic only
+
+Trusts Gateway headers
+
+Uses DTOs (not entities)
+
+🧠 KEY LESSONS (VERY IMPORTANT)
+
+❌ Never use JPA entities as request bodies
+
+❌ Never validate JWT in multiple services
+
+❌ OAuth2 does NOT belong behind Gateway
+
+✅ Gateway = security
+
+✅ Services = business logic
+
+✅ DTOs = clean APIs
