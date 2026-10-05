@@ -19,6 +19,16 @@ public class CreateQuestionRequest {
     @NotBlank
     private String text;
 
+    private com.bittuthecoder.question_service.model.Difficulty difficulty;
+
+    private String category;
+
+    private String tags;
+
+    private Integer marks;
+
+    private Double negativeMarks;
+
     @NotNull
     private List<OptionRequest> options;
 }

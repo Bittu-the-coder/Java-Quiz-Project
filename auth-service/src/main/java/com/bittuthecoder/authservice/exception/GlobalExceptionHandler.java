@@ -127,6 +127,16 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
     }
 
+    @ExceptionHandler(com.bittuthecoder.common.error.ApiException.class)
+    public ResponseEntity<ErrorResponse> handleApiException(com.bittuthecoder.common.error.ApiException ex) {
+        ErrorResponse response = ErrorResponse.builder()
+                .message(ex.getMessage())
+                .status(ex.getStatus().value())
+                .timestamp(LocalDateTime.now())
+                .build();
+        return new ResponseEntity<>(response, ex.getStatus());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
 

@@ -1,36 +1,83 @@
 package com.bittuthecoder.authservice.security;
 
+import com.bittuthecoder.common.security.RsaKeyUtil;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.nio.charset.StandardCharsets;
-import java.security.Key;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.util.Date;
+import java.util.UUID;
 
+/**
+ * RS256 Asymmetric JWT Utility.
+ * Signs tokens using an RSA-2048 private key.
+ * Verifiers only require the corresponding RSA-2048 public key.
+ */
 @Component
 public class JwtUtil {
 
-    // 🔐 MUST be at least 32 characters for HS256
-    private static final String SECRET =
-            "very_secret_key_12345_very_secret_key_12345";
+    private static final long EXPIRATION = 1000 * 60 * 60 * 24; // 24 hours
 
-    private static final long EXPIRATION = 1000 * 60 * 60; // 1 hour
+    private final PrivateKey privateKey;
+    private final PublicKey publicKey;
+    private final String publicKeyPem;
 
-    private final Key key = Keys.hmacShaKeyFor(
-            SECRET.getBytes(StandardCharsets.UTF_8)
-    );
+    public JwtUtil(
+            @Value("${assessify.jwt.rsa.private-key:#{null}}") String customPrivKeyPem,
+            @Value("${assessify.jwt.rsa.public-key:#{null}}") String customPubKeyPem
+    ) {
+        String privPem = (customPrivKeyPem != null && !customPrivKeyPem.isBlank())
+                ? customPrivKeyPem : RsaKeyUtil.DEFAULT_PRIVATE_KEY_PEM;
+        String pubPem = (customPubKeyPem != null && !customPubKeyPem.isBlank())
+                ? customPubKeyPem : RsaKeyUtil.DEFAULT_PUBLIC_KEY_PEM;
 
-    public String generateToken(String email, String role) {
+        this.privateKey = RsaKeyUtil.parsePrivateKey(privPem);
+        this.publicKey = RsaKeyUtil.parsePublicKey(pubPem);
+        this.publicKeyPem = pubPem;
+    }
 
-        return Jwts.builder()
+    public String getPublicKeyPem() {
+        return publicKeyPem;
+    }
+
+    public String generateToken(UUID userId, String email, UUID orgId, String role) {
+        var builder = Jwts.builder()
                 .setSubject(email)
+                .claim("user_id", userId != null ? userId.toString() : null)
                 .claim("role", role)
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION))
-                .signWith(key, SignatureAlgorithm.HS256)
-                .compact();
+                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION));
+
+        if (orgId != null) {
+            builder.claim("org_id", orgId.toString());
+        }
+
+        return builder.signWith(privateKey, SignatureAlgorithm.RS256).compact();
+    }
+
+    public String generateToken(String email, String role) {
+        return generateToken(null, email, null, role);
+    }
+
+    public Claims getClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(publicKey)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    public boolean validateToken(String token) {
+        try {
+            getClaims(token);
+            return true;
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
     }
 }

@@ -1,8 +1,8 @@
 package com.bittuthecoder.quiz_service.model;
 
-
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -20,6 +20,9 @@ public class Quiz {
     @GeneratedValue
     private UUID id;
 
+    @Column(name = "org_id", nullable = false)
+    private UUID orgId;
+
     @Column(nullable = false)
     private String title;
 
@@ -30,5 +33,6 @@ public class Quiz {
     @Column(nullable = false)
     private String createdBy; // email from gateway
 
+    @CreationTimestamp
     private LocalDateTime createdAt;
 }

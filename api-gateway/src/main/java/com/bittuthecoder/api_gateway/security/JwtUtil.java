@@ -1,26 +1,33 @@
 package com.bittuthecoder.api_gateway.security;
 
+import com.bittuthecoder.common.security.RsaKeyUtil;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.nio.charset.StandardCharsets;
-import java.security.Key;
+import java.security.PublicKey;
 
+/**
+ * Gateway RS256 JWT Verifier.
+ * Only requires the RSA-2048 public key. No private key is ever exposed or known to the gateway.
+ */
 @Component
 public class JwtUtil {
 
-    private static final String SECRET =
-            "very_secret_key_12345_very_secret_key_12345";
+    private final PublicKey publicKey;
 
-    private final Key key = Keys.hmacShaKeyFor(
-            SECRET.getBytes(StandardCharsets.UTF_8)
-    );
+    public JwtUtil(
+            @Value("${assessify.jwt.rsa.public-key:#{null}}") String customPubKeyPem
+    ) {
+        String pubPem = (customPubKeyPem != null && !customPubKeyPem.isBlank())
+                ? customPubKeyPem : RsaKeyUtil.DEFAULT_PUBLIC_KEY_PEM;
+        this.publicKey = RsaKeyUtil.parsePublicKey(pubPem);
+    }
 
     public Claims getClaims(String token) {
         return Jwts.parserBuilder()
-                .setSigningKey(key)
+                .setSigningKey(publicKey)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
